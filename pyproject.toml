@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "myLogger"
+version = "1.0.0"
+description = "Production-grade Python logger with JSON, colors, hooks and single-instance safety"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+  {name = "Jonathan Verneau"}
+]
+
+dependencies = [
+  "colorama>=0.4.6"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
