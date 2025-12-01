@@ -1,21 +1,39 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "myLogger"
-version = "1.0.0"
-description = "Production-grade Python logger with JSON, colors, hooks and single-instance safety"
+version = "0.1.0"
+description = "Robust Python logger with JSON signing, single-instance lock, and application lifecycle metrics"
 readme = "README.md"
-requires-python = ">=3.10"
-license = {text = "MIT"}
+requires-python = ">=3.9"
+license = { text = "MIT" }
+
 authors = [
-  {name = "Jonathan Verneau"}
+    { name = "Jonathan Verneau" }
 ]
 
 dependencies = [
-  "colorama>=0.4.6"
 ]
+
+# ✅ Dépendances OPTIONNELLES (crucial)
+[project.optional-dependencies]
+monitoring = [
+    "psutil>=5.9"
+]
+
+dev = [
+    "pytest>=8.0",
+    "pytest-mock>=3.12"
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]

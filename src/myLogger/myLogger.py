@@ -12,6 +12,7 @@ import logging
 import logging.handlers
 import sys
 import os
+import psutil
 from pathlib import Path
 from typing import Optional
 from .formatters import ColoredFormatter, JsonFormatter
@@ -19,6 +20,7 @@ from .hooks import install_global_exception_handlers
 from .mutex import create_lock
 from .exceptions import SingleInstanceError
 from .signing import Signer
+from .lifecycle import ApplicationLifecycleLogger
 
 
 DEFAULT_BACKUP_COUNT = 7
@@ -27,13 +29,14 @@ DEFAULT_JSON_MAX_BYTES = 10_485_760  # 10 MB
 class Logger:
     def __init__(
         self,
-        name: Optional[str] = None,
+        name: str = None,
         level: int = logging.INFO,
         install_excepthooks: bool = True,
         single_instance: bool = False,
-        mutex_name: Optional[str] = None,
-        signer: Optional[Signer] = None,
-        log_dir: Optional[Path] = None,
+        mutex_name: str = None,
+        signer: Signer = None,
+        log_dir: str = None,
+        lifecycle: bool = False  # <= nouveau paramètre
     ):
         """
         Create and configure a logger.
@@ -51,19 +54,15 @@ class Logger:
         self.name = base_name
         self.signer = signer
         self._lock = None
+        self._lifecycle = lifecycle
+        self._process = psutil.Process()
 
         # Optional single-instance lock (platform-aware)
         if single_instance:
             lock_id = mutex_name or base_name
             lock = create_lock(lock_id)
-            if lock is None:
-                # no lock available on this platform: treat as non-fatal, but inform via debug
-                # (alternatively, you could raise)
-                # We'll record it on instance for symmetry.
-                self._lock = None
-            else:
-                acquired = lock.acquire()
-                if not acquired:
+            if lock is not None:
+                if not lock.acquire():
                     raise SingleInstanceError("Another instance is already running")
                 self._lock = lock
 
@@ -80,7 +79,14 @@ class Logger:
         if install_excepthooks:
             install_global_exception_handlers()
 
-        self.logger.debug("Logger initialized")
+        if lifecycle:
+            self._lifecycle = ApplicationLifecycleLogger(
+                logger=self.logger,
+                app_name=self.name,
+            )
+            self._lifecycle.start()
+        else:
+            self.logger.debug("Logger initialized")
 
 
     def _log_dir(self, log_dir: Optional[Path]) -> Path:
@@ -128,6 +134,10 @@ class Logger:
         return self.logger
 
     def close(self) -> None:
+        if self._lifecycle:
+            self._lifecycle.stop()
+            self._lifecycle = None
+
         # Close and remove handlers
         for handler in list(self.logger.handlers):
             try:

@@ -5,7 +5,7 @@ Entry point `mylogger` will map to mylogger.cli:main via pyproject scripts.
 
 import argparse
 import logging
-from .myLogger import Logger
+from .myLogger import Logger, ApplicationLifecycleLogger
 from .signing import HMACSigner, RSASigner
 from pathlib import Path
 import os
@@ -50,6 +50,10 @@ def main(argv=None):
     )
 
     logger = wrapper.get_logger()
+
+    with ApplicationLifecycleLogger(logger, app_name=args.name):
+        run_cleaning_logic()
+
 
     if args.show_config:
         logger.info(f"name={logger.name}, handlers={len(logger.handlers)}")
