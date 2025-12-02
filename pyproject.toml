@@ -1,39 +1,75 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel", "psutil>=5.9"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "jvlogger"
 version = "0.1.0"
-description = "Robust Python logger with JSON signing, single-instance lock, and application lifecycle metrics"
+description = "Advanced Python logger with lifecycle tracking, signing, and single-instance protection"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
-
 authors = [
     { name = "Jonathan Verneau" }
 ]
 
 dependencies = [
+    "psutil>=5.9.8",
+    "colorama>=0.4.6"
 ]
 
-# ✅ Dépendances OPTIONNELLES (crucial)
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/tonrepo/jvlogger"
+Source = "https://github.com/tonrepo/jvlogger"
+Issues = "https://github.com/tonrepo/jvlogger/issues"
+
+# ============================
+# OPTIONAL / DEV DEPENDENCIES
+# ============================
+
 [project.optional-dependencies]
-monitoring = [
-    "psutil>=5.9"
-]
-
 dev = [
-    "pytest>=8.0",
-    "pytest-mock>=3.12"
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "mypy>=1.8",
+    "ruff>=0.2",
 ]
 
-[tool.setuptools]
-package-dir = { "" = "src" }
-
-[tool.setuptools.packages.find]
-where = ["src"]
+# ============================
+# PYTEST CONFIG
+# ============================
 
 [tool.pytest.ini_options]
-addopts = "-ra"
+minversion = "7.0"
+addopts = "-ra -q"
 testpaths = ["tests"]
+
+# ============================
+# RUFF (LINT)
+# ============================
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+select = ["E", "F", "W"]
+ignore = ["E501"]
+
+# ============================
+# MYPY
+# ============================
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

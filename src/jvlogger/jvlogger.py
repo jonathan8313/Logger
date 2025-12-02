@@ -13,6 +13,7 @@ import logging.handlers
 import sys
 import os
 import psutil
+import socket
 from pathlib import Path
 from typing import Optional
 from .formatters import ColoredFormatter, JsonFormatter
@@ -57,6 +58,8 @@ class JVLogger:
         self._lifecycle = lifecycle
         self._process = psutil.Process()
 
+        self.log_dir = self._log_dir(log_dir)
+
         # Optional single-instance lock (platform-aware)
         if single_instance:
             lock_id = mutex_name or base_name
@@ -90,12 +93,23 @@ class JVLogger:
 
 
     def _log_dir(self, log_dir: Optional[Path]) -> Path:
-        if log_dir:
-            d = Path(log_dir)
+        hostname = socket.gethostname()
+
+        # Explicit directory provided → respect it
+        if log_dir is not None:
+            base_dir = Path(log_dir).resolve()
         else:
-            d = Path(sys.argv[0]).resolve().parent / "logs"
-        d.mkdir(parents=True, exist_ok=True)
-        return d
+            # Frozen executable (PyInstaller)
+            if hasattr(sys, "_MEIPASS"):
+                base_dir = Path(sys.executable).resolve().parent
+            else:
+                base_dir = Path(sys.argv[0]).resolve().parent
+
+        base_dir = base_dir / "logs"
+
+        final_dir = base_dir / hostname
+        final_dir.mkdir(parents=True, exist_ok=True)
+        return final_dir
 
     def _setup_handlers(self, level: int, log_dir: Optional[Path] = None) -> None:
         d = self._log_dir(log_dir)
