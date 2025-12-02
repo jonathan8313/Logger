@@ -1,7 +1,7 @@
-from .myLogger import Logger as BaseLogger
+from .jvlogger import JVLogger as BaseLogger
 from .lifecycle_logger import ApplicationLifecycleLogger
 
-class Logger(BaseLogger):
+class JVLogger(BaseLogger):
     def __init__(self, *args, lifecycle: bool = False, **kwargs):
         super().__init__(*args, **kwargs)
         self._lifecycle_enabled = lifecycle

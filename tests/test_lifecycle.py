@@ -1,5 +1,5 @@
 import logging
-from myLogger.lifecycle import ApplicationLifecycleLogger, PSUTIL_AVAILABLE
+from jvlogger.lifecycle import ApplicationLifecycleLogger, PSUTIL_AVAILABLE
 
 
 class DummyLogger(logging.Logger):
@@ -13,7 +13,7 @@ class DummyLogger(logging.Logger):
 
 def test_lifecycle_without_psutil(monkeypatch):
     monkeypatch.setattr(
-        "myLogger.lifecycle.PSUTIL_AVAILABLE",
+        "jvlogger.lifecycle.PSUTIL_AVAILABLE",
         False,
     )
 
@@ -40,11 +40,11 @@ def test_lifecycle_with_mocked_psutil(monkeypatch):
             return M()
 
     monkeypatch.setattr(
-        "myLogger.lifecycle.PSUTIL_AVAILABLE",
+        "jvlogger.lifecycle.PSUTIL_AVAILABLE",
         True
     )
     monkeypatch.setattr(
-        "myLogger.lifecycle.psutil",
+        "jvlogger.lifecycle.psutil",
         type("psutil", (), {"Process": lambda: FakeProcess()})
     )
 

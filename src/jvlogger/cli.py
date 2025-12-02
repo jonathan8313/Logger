@@ -1,18 +1,18 @@
 """
 Command-line interface for simple log emission and testing.
-Entry point `mylogger` will map to mylogger.cli:main via pyproject scripts.
+Entry point `jvlogger` will map to jvlogger.cli:main via pyproject scripts.
 """
 
 import argparse
 import logging
-from .myLogger import Logger, ApplicationLifecycleLogger
+from .jvlogger import JVLogger, ApplicationLifecycleLogger
 from .signing import HMACSigner, RSASigner
 from pathlib import Path
 import os
 import sys
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="mylogger", description="mylogger CLI - emit test logs and run checks")
+    p = argparse.ArgumentParser(prog="jvlogger", description="jvlogger CLI - emit test logs and run checks")
     p.add_argument("level", nargs="?", choices=["debug","info","warning","error","critical"], help="Log level")
     p.add_argument("message", nargs="?", help="Log message")
     p.add_argument("--name", help="Logger name (default: script name)")
@@ -41,7 +41,7 @@ def main(argv=None):
 
     signer = _load_signer_from_args(args)
 
-    wrapper = Logger(
+    wrapper = JVLogger(
         name=args.name,
         level=logging.DEBUG,
         install_excepthooks=not args.no_hooks,

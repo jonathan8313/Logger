@@ -1,2 +1,9 @@
 .venv/
 logs/
+__pycache__
+tests/__pycache__
+dist/
+build/
+.pytest_cache
+src/jvlogger.egg-info
+jvlogger/__pycache__

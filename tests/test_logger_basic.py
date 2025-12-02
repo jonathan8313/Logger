@@ -1,8 +1,8 @@
 import logging
-from myLogger import Logger
+from jvlogger import   JVLogger
 
 def test_logger_creation(temp_log_dir):
-    wrapper = Logger(
+    wrapper = JVLogger(
         name="test_app",
         level=logging.DEBUG,
         install_excepthooks=False,

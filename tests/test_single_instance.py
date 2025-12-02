@@ -1,6 +1,6 @@
 import pytest
-from myLogger import Logger
-from myLogger.exceptions import SingleInstanceError
+from jvlogger import JVLogger
+from jvlogger.exceptions import SingleInstanceError
 
 class DummyLock:
     """Simule un lock pour les tests, sans toucher au filesystem."""
@@ -20,9 +20,9 @@ def test_single_instance_ok(monkeypatch, temp_log_dir):
     Test that Logger acquires the single-instance lock successfully.
     We patch `create_lock` to avoid touching the filesystem.
     """
-    monkeypatch.setattr("myLogger.myLogger.create_lock", lambda name: DummyLock(True))
+    monkeypatch.setattr("jvlogger.jvlogger.create_lock", lambda name: DummyLock(True))
 
-    logger = Logger(
+    logger = JVLogger(
         name="lock_ok",
         single_instance=True,
         install_excepthooks=False,
@@ -40,10 +40,10 @@ def test_single_instance_conflict(monkeypatch, temp_log_dir):
     Test that Logger raises SingleInstanceError when lock cannot be acquired.
     We patch `create_lock` to simulate another instance running.
     """
-    monkeypatch.setattr("myLogger.myLogger.create_lock", lambda name: DummyLock(False))
+    monkeypatch.setattr("jvlogger.jvlogger.create_lock", lambda name: DummyLock(False))
 
     with pytest.raises(SingleInstanceError):
-        Logger(
+        JVLogger(
             name="lock_fail",
             single_instance=True,
             install_excepthooks=False,

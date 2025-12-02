@@ -1,4 +1,4 @@
-# mylogger
+# jvlogger
 
 Production-ready Python logger.
 
@@ -12,4 +12,4 @@ Production-ready Python logger.
 
 ## Installation
 ```bash
-pip install myLogger
+pip install jvlogger

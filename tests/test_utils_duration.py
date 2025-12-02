@@ -1,4 +1,4 @@
-from myLogger.utils import format_duration, format_bytes
+from jvlogger.utils import format_duration, format_bytes
 
 
 def test_duration_days():

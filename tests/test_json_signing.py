@@ -1,12 +1,12 @@
 import json
-from myLogger import Logger
-from myLogger.signing import HMACSigner
+from jvlogger import JVLogger
+from jvlogger.signing import HMACSigner
 
 def test_json_log_is_signed(temp_log_dir):
     key = HMACSigner.generate_key()
     signer = HMACSigner(key)
 
-    wrapper = Logger(
+    wrapper = JVLogger(
         name="signed_app",
         signer=signer,
         install_excepthooks=False,

@@ -26,7 +26,7 @@ from .lifecycle import ApplicationLifecycleLogger
 DEFAULT_BACKUP_COUNT = 7
 DEFAULT_JSON_MAX_BYTES = 10_485_760  # 10 MB
 
-class Logger:
+class JVLogger:
     def __init__(
         self,
         name: str = None,
