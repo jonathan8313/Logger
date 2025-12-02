@@ -22,5 +22,5 @@ from jvlogger import JVLogger
 logger_wrapper = JVLogger()
 logger = logger_wrapper.get_logger()
 
-run your app (logger)
+run your app main function here (logger)
 logger_wrapper.close()
