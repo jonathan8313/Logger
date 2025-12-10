@@ -29,9 +29,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/tonrepo/jvlogger"
-Source = "https://github.com/tonrepo/jvlogger"
-Issues = "https://github.com/tonrepo/jvlogger/issues"
+Homepage = "https://github.com/jonathan8313/Logger"
+
 
 # ============================
 # OPTIONAL / DEV DEPENDENCIES
