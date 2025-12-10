@@ -10,10 +10,11 @@ Main Logger wrapper. Exposes Logger class that configures:
 
 import logging
 import logging.handlers
+from logging.config import dictConfig
 import sys
-import os
-import psutil
+import json
 import socket
+import psutil
 from pathlib import Path
 from typing import Optional
 from .formatters import ColoredFormatter, JsonFormatter
@@ -37,7 +38,7 @@ class JVLogger:
         mutex_name: str = None,
         signer: Signer = None,
         log_dir: str = None,
-        lifecycle: bool = False  # <= nouveau paramètre
+        lifecycle: bool = False
     ):
         """
         Create and configure a logger.
@@ -75,7 +76,7 @@ class JVLogger:
         self.logger.propagate = False
 
         if not self.logger.handlers:
-            self._setup_handlers(level, log_dir=log_dir)
+            self._setup_logging_from_json(level)
 
         logging.captureWarnings(True)
 
@@ -93,17 +94,20 @@ class JVLogger:
 
 
     def _log_dir(self, log_dir: Optional[Path]) -> Path:
-        hostname = socket.gethostname()
-
         # Explicit directory provided → respect it
         if log_dir is not None:
-            base_dir = Path(log_dir).resolve()
+            final_dir = Path(log_dir).resolve()
+            final_dir.mkdir(parents=True, exist_ok=True)
+            return final_dir
+
+        # Default behavior: <script_dir>/logs/<hostname>
+        hostname = socket.gethostname()
+
+        # Frozen executable (PyInstaller)
+        if hasattr(sys, "_MEIPASS"):
+            base_dir = Path(sys.executable).resolve().parent
         else:
-            # Frozen executable (PyInstaller)
-            if hasattr(sys, "_MEIPASS"):
-                base_dir = Path(sys.executable).resolve().parent
-            else:
-                base_dir = Path(sys.argv[0]).resolve().parent
+            base_dir = Path(sys.argv[0]).resolve().parent
 
         base_dir = base_dir / "logs"
 
@@ -111,38 +115,33 @@ class JVLogger:
         final_dir.mkdir(parents=True, exist_ok=True)
         return final_dir
 
-    def _setup_handlers(self, level: int, log_dir: Optional[Path] = None) -> None:
-        d = self._log_dir(log_dir)
 
-        # Console
-        console = logging.StreamHandler(sys.stdout)
-        console.setLevel(level)
-        console.setFormatter(ColoredFormatter("%(asctime)s - [%(name)s] - %(levelname)s - %(message)s"))
-        self.logger.addHandler(console)
+    def _setup_logging_from_json(self, level: int) -> None:
+        config_path = Path(__file__).parent / "logging.json"
+    
+        with config_path.open(encoding="utf-8") as f:
+            config = json.load(f)
+    
+        # --- Injection dynamique (OBLIGATOIRE) ---
+    
+        # Logger name
+        config["loggers"][self.name] = config["loggers"].pop("APP_LOGGER")
+    
+        # Log directory + file names
+        for handler in config["handlers"].values():
+            if "filename" in handler:
+                handler["filename"] = str(self.log_dir / handler["filename"].replace("APP_NAME", self.name))
+    
+        # Inject signer into JsonFormatter
+        # Inject signer into JsonFormatter
+        config["formatters"]["json"]["signer"] = self.signer
+    
+        dictConfig(config)
 
-        # Text file - daily rotation at midnight
-        text_path = d / f"{self.name}.log"
-        text_handler = logging.handlers.TimedRotatingFileHandler(
-            filename=str(text_path),
-            when="midnight",
-            backupCount=DEFAULT_BACKUP_COUNT,
-            encoding="utf-8",
-        )
-        text_handler.setLevel(logging.DEBUG)
-        text_handler.setFormatter(logging.Formatter("%(asctime)s - [%(name)s] - %(levelname)s - %(message)s"))
-        self.logger.addHandler(text_handler)
+    
+        self.logger = logging.getLogger(self.name)
+        self.logger.setLevel(level)
 
-        # JSON file - size rotation
-        json_path = d / f"{self.name}.json"
-        json_handler = logging.handlers.RotatingFileHandler(
-            filename=str(json_path),
-            maxBytes=DEFAULT_JSON_MAX_BYTES,
-            backupCount=DEFAULT_BACKUP_COUNT,
-            encoding="utf-8",
-        )
-        json_handler.setLevel(logging.DEBUG)
-        json_handler.setFormatter(JsonFormatter(signer=self.signer))
-        self.logger.addHandler(json_handler)
 
     def get_logger(self) -> logging.Logger:
         return self.logger

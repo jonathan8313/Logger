@@ -1,5 +1,5 @@
 import logging
-from jvlogger import   JVLogger
+from jvlogger import JVLogger
 
 def test_logger_creation(temp_log_dir):
     wrapper = JVLogger(

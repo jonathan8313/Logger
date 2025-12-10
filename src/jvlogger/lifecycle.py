@@ -1,8 +1,7 @@
 import time
 from typing import Optional
-import psutil
 import logging
-
+from .utils import format_bytes, format_duration
 try:
     import psutil
     PSUTIL_AVAILABLE = True
@@ -54,14 +53,14 @@ class ApplicationLifecycleLogger:
             mem_used = end_mem - (self._start_mem or end_mem)
 
         parts = [
-            f"Duration: {duration:.2f}s",
+            f"Duration: {format_duration(duration)}",
         ]
 
         if cpu_used is not None:
-            parts.append(f"CPU time: {cpu_used:.2f}s")
+            parts.append(f"CPU time: {format_duration(cpu_used)}")
 
         if mem_used is not None:
-            parts.append(f"RAM delta: {mem_used / (1024 * 1024):.2f} MB")
+            parts.append(f"RAM delta: {format_bytes(mem_used)}")
 
         self.logger.info(
             f"=== Application [{self.app_name}] execution finished | "
