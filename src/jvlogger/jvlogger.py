@@ -10,9 +10,7 @@ Main Logger wrapper. Exposes Logger class that configures:
 
 import logging
 import logging.handlers
-from logging.config import dictConfig
 import sys
-import json
 import socket
 import psutil
 from pathlib import Path
@@ -26,9 +24,27 @@ from .lifecycle import ApplicationLifecycleLogger
 
 
 DEFAULT_BACKUP_COUNT = 7
-DEFAULT_JSON_MAX_BYTES = 10_485_760  # 10 MB
 
-class JVLogger:
+class JVLoggerMeta(type):
+    """
+    Metaclass to support 'with JVLogger:' class-level context manager.
+    """
+    _instance = None
+
+    def __enter__(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance.__enter__()
+
+    def __exit__(cls, exc_type, exc_val, exc_tb):
+        if cls._instance:
+            try:
+                cls._instance.__exit__(exc_type, exc_val, exc_tb)
+            finally:
+                cls._instance = None
+
+
+class JVLogger(metaclass=JVLoggerMeta):
     def __init__(
         self,
         name: str = None,
@@ -60,6 +76,19 @@ class JVLogger:
         self._process = psutil.Process()
 
         self.log_dir = self._log_dir(log_dir)
+        self._single_instance = single_instance
+
+        # Pre-calculate file paths
+        self._main_text_path = self.log_dir / f"{self.name}.log"
+        self._main_json_path = self.log_dir / f"{self.name}.json"
+
+        if not single_instance:
+            pid = self._process.pid
+            self._temp_text_path = self.log_dir / f"{self.name}_{pid}.log"
+            self._temp_json_path = self.log_dir / f"{self.name}_{pid}.json"
+        else:
+            self._temp_text_path = self._main_text_path
+            self._temp_json_path = self._main_json_path
 
         # Optional single-instance lock (platform-aware)
         if single_instance:
@@ -76,7 +105,7 @@ class JVLogger:
         self.logger.propagate = False
 
         if not self.logger.handlers:
-            self._setup_logging_from_json(level)
+            self._setup_handlers(level)
 
         logging.captureWarnings(True)
 
@@ -100,7 +129,6 @@ class JVLogger:
             final_dir.mkdir(parents=True, exist_ok=True)
             return final_dir
 
-        # Default behavior: <script_dir>/logs/<hostname>
         hostname = socket.gethostname()
 
         # Frozen executable (PyInstaller)
@@ -115,36 +143,63 @@ class JVLogger:
         final_dir.mkdir(parents=True, exist_ok=True)
         return final_dir
 
+    def _setup_handlers(self, level: int) -> None:
+        d = self.log_dir
 
-    def _setup_logging_from_json(self, level: int) -> None:
-        config_path = Path(__file__).parent / "logging.json"
-    
-        with config_path.open(encoding="utf-8") as f:
-            config = json.load(f)
-    
-        # --- Injection dynamique (OBLIGATOIRE) ---
-    
-        # Logger name
-        config["loggers"][self.name] = config["loggers"].pop("APP_LOGGER")
-    
-        # Log directory + file names
-        for handler in config["handlers"].values():
-            if "filename" in handler:
-                handler["filename"] = str(self.log_dir / handler["filename"].replace("APP_NAME", self.name))
-    
-        # Inject signer into JsonFormatter
-        # Inject signer into JsonFormatter
-        config["formatters"]["json"]["signer"] = self.signer
-    
-        dictConfig(config)
+        # Console
+        console = logging.StreamHandler(sys.stdout)
+        console.setLevel(level)
+        console.setFormatter(ColoredFormatter("%(asctime)s - [%(name)s] - %(levelname)s - %(message)s"))
+        self.logger.addHandler(console)
 
-    
-        self.logger = logging.getLogger(self.name)
-        self.logger.setLevel(level)
+        # Text file - daily rotation at midnight
+        text_handler = logging.handlers.TimedRotatingFileHandler(
+            filename=str(self._temp_text_path),
+            when="midnight",
+            backupCount=DEFAULT_BACKUP_COUNT,
+            encoding="utf-8",
+        )
+        text_handler.setLevel(logging.DEBUG)
+        text_handler.setFormatter(logging.Formatter("%(asctime)s - [%(name)s] - %(levelname)s - %(message)s"))
+        self.logger.addHandler(text_handler)
 
+        # JSON file - size rotation
+        json_handler = logging.handlers.TimedRotatingFileHandler(
+            filename=str(self._temp_json_path),
+            when="midnight",
+            backupCount=DEFAULT_BACKUP_COUNT,
+            encoding="utf-8",
+        )
+        json_handler.setLevel(logging.DEBUG)
+        json_handler.setFormatter(JsonFormatter(signer=self.signer))
+        self.logger.addHandler(json_handler)
 
     def get_logger(self) -> logging.Logger:
         return self.logger
+
+    def debug(self, msg, *args, **kwargs):
+        self.logger.debug(msg, *args, **kwargs)
+
+    def info(self, msg, *args, **kwargs):
+        self.logger.info(msg, *args, **kwargs)
+
+    def warning(self, msg, *args, **kwargs):
+        self.logger.warning(msg, *args, **kwargs)
+
+    def error(self, msg, *args, **kwargs):
+        self.logger.error(msg, *args, **kwargs)
+
+    def critical(self, msg, *args, **kwargs):
+        self.logger.critical(msg, *args, **kwargs)
+
+    def exception(self, msg, *args, **kwargs):
+        self.logger.exception(msg, *args, **kwargs)
+
+    def log(self, level, msg, *args, **kwargs):
+        self.logger.log(level, msg, *args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self.logger, name)
 
     def close(self) -> None:
         if self._lifecycle:
@@ -162,6 +217,10 @@ class JVLogger:
             except Exception:
                 pass
 
+        # Merge logs if they were temporary
+        if not self._single_instance:
+            self._merge_logs()
+
         # release lock if any
         if self._lock:
             try:
@@ -169,8 +228,45 @@ class JVLogger:
             finally:
                 self._lock = None
 
-    def __enter__(self) -> logging.Logger:
-        return self.get_logger()
+    def __enter__(self) -> "JVLogger":
+        return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.close()
+
+    def _merge_logs(self) -> None:
+        """
+        Merge temporary logs into the main log files.
+        Uses a lock to ensure only one process merges at a time.
+        """
+        merge_lock = create_lock(f"{self.name}_merge")
+        if merge_lock:
+            # Wait for the lock to ensure serialized merging
+            # We use a simple loop or blocking acquire if supported
+            # For simplicity, let's assume acquire() is blocking or we wait a bit
+            # In our current implementation, create_lock returns a lock that might be non-blocking
+            # Let's check how acquire() works in windows.py/posix.py
+            if merge_lock.acquire():
+                try:
+                    self._append_file(self._temp_text_path, self._main_text_path)
+                    self._append_file(self._temp_json_path, self._main_json_path)
+                finally:
+                    merge_lock.release()
+
+    def _append_file(self, source: Path, destination: Path) -> None:
+        if not source.exists():
+            return
+        
+        try:
+            with open(source, "r", encoding="utf-8") as src_f:
+                content = src_f.read()
+            
+            if content:
+                with open(destination, "a", encoding="utf-8") as dest_f:
+                    dest_f.write(content)
+            
+            source.unlink(missing_ok=True)
+        except Exception as e:
+            # We don't want to crash the application during close()
+            # but we could log to stderr
+            print(f"Error merging log file {source} to {destination}: {e}", file=sys.stderr)

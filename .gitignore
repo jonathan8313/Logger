@@ -1,4 +1,5 @@
 .venv/
+logger-env/
 logs/
 __pycache__
 tests/__pycache__
